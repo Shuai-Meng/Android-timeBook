@@ -69,6 +69,11 @@ public class RecordListFragment extends ListFragment {
             @Override
             public void onClick(View v) {
                 Record r = dbHelper.getLastRecordOfDay(month + "-" + day);
+                if(r.getId() == -1) {//说明当天还没有记录
+                    Log.i("today", "first");
+                    r = new Record();
+                    r.setEnd("00:00");
+                }
                 addInfo(r, "add");
             }
         });
@@ -82,14 +87,17 @@ public class RecordListFragment extends ListFragment {
                             @Override
                             public void onDateSet(DatePicker view, int year1, int month1, int day1) {
                                 yearText.setText(year1+"");
-                                monthText.setText(month1+"");
+                                month = month1 + 1;
+                                monthText.setText(month+"");
+                                day = day1;
                                 dayText.setText(day1+"");
+                                Log.i("date", month1 +"-"+day1);
 
                                 rCursor = dbHelper.queryRecords(month1 + "-" + day1);
                                 RecordCursorAdapter adapter = new RecordCursorAdapter(getActivity(), rCursor);
                                 setListAdapter(adapter);
                             }
-                        }, c.get(Calendar.YEAR), month, day).show();
+                        }, c.get(Calendar.YEAR), month-1, day).show();
             }
         });
         return v;

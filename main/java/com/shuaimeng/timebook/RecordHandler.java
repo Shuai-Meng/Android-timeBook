@@ -1,21 +1,20 @@
 package com.shuaimeng.timebook;
 
 import android.app.Activity;
-import android.app.TimePickerDialog;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.NumberPicker;
 import android.widget.TextView;
-import android.widget.TimePicker;
 
-import java.text.DecimalFormat;
-import java.text.Format;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Date;
 
 public class RecordHandler extends Activity {
@@ -25,7 +24,7 @@ public class RecordHandler extends Activity {
     private TextView end;
     private EditText editText;
     private Button save;
-    private Button cancel;
+    private Button delete;
     private RecordDBHelper dbHelper;
     private String year;
     private String month;
@@ -43,7 +42,7 @@ public class RecordHandler extends Activity {
         end = (TextView) findViewById(R.id.end);
         editText = (EditText) findViewById(R.id.event);
         save = (Button)findViewById(R.id.save);
-        cancel = (Button)findViewById(R.id.cancel);
+        delete = (Button)findViewById(R.id.delete);
 
         Intent intent = getIntent();
         year = intent.getStringExtra("year");
@@ -51,24 +50,25 @@ public class RecordHandler extends Activity {
         day = intent.getStringExtra("day");
         flag = intent.getStringExtra("flag");
         record = (Record)intent.getSerializableExtra("record");
-
         dbHelper = new RecordDBHelper(this, year, 2);
         setElem();
     }
 
     private void setElem() {
+        today.setText(year+"-"+month+"-"+day);
+
         if("add".equals(flag)) {
             start.setText(record.getEnd());
-            SimpleDateFormat df = new SimpleDateFormat("hh:mm");
+            SimpleDateFormat df = new SimpleDateFormat("HH:mm");
             end.setText(df.format(new Date()));
 
-            cancel.setVisibility(View.GONE);
+            delete.setVisibility(View.GONE);
         } else {
             start.setText(record.getStart());
             end.setText(record.getEnd());
             editText.setText(record.getEvent());
 
-            cancel.setOnClickListener(new View.OnClickListener() {
+            delete.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     dbHelper.deleteRecord(record);
@@ -77,7 +77,6 @@ public class RecordHandler extends Activity {
             });
         }
 
-        today.setText(year+"-"+month+"-"+day);
         start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -103,16 +102,51 @@ public class RecordHandler extends Activity {
     }
 
     private void setTime(final TextView t) {
-        String text = t.getText().toString();
-        int[] time = getNumberFromTime(text);
-        new TimePickerDialog(RecordHandler.this,
-                new TimePickerDialog.OnTimeSetListener() {
-                    @Override
-                    public void onTimeSet(TimePicker view,int hourOfDay, int minute) {
-                        t.setText(hourOfDay + ":" + minute);
-                    }
-                }, time[0], time[1],
-                false).show();
+        final AlertDialog dialog = new AlertDialog.Builder(this).create();
+        dialog.show();
+        dialog.getWindow().setContentView(View.inflate(this, R.layout.time_picker, null));
+
+        int[] time = getNumberFromTime(t.getText().toString());
+        Log.i("val",t.getText().toString());
+        final NumberPicker hourPicker = (NumberPicker) dialog.findViewById(R.id.hourPicker);
+        setPicker(hourPicker, 0, 23, time[0]);
+        final NumberPicker minutePicker = (NumberPicker) dialog.findViewById(R.id.minutePicker);
+        setPicker(minutePicker, 0, 59, time[1]);
+
+        Button ok = (Button) dialog.findViewById(R.id.ok);
+        ok.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String res = formatTime(hourPicker.getValue()) + ":" +
+                        formatTime(minutePicker.getValue());
+                t.setText(res);
+                dialog.dismiss();
+            }
+        });
+
+        Button cancel = (Button) dialog.findViewById(R.id.cancel);
+        cancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dialog.cancel();
+            }
+        });
+    }
+
+    private void setPicker(NumberPicker picker, int min, int max, int init) {
+        picker.setMinValue(min);
+        picker.setMaxValue(max);
+        picker.setValue(init);
+        picker.setFormatter(new NumberPicker.Formatter() {
+            @Override
+            public String format(int value) {
+                String tmpStr = String.valueOf(value);
+                if (value < 10) {
+                    tmpStr = "0" + tmpStr;
+                }
+                return tmpStr;
+            }
+        });
     }
 
     private int[] getNumberFromTime(String time) {
@@ -122,6 +156,12 @@ public class RecordHandler extends Activity {
         res[1] = Integer.parseInt(arr[1]);
 
         return res;
+    }
+
+    private String formatTime(int value) {
+        if(value < 10)
+            return "0" + value;
+        return value + "";
     }
 
     private void saveData() {
@@ -136,7 +176,6 @@ public class RecordHandler extends Activity {
         r.setSpan(length);
         float p = length * 100 / (24.0f * 60);
         r.setPercent(String.format("%.2f",p));
-
         dbHelper.insertRecord(r, flag);
     }
 
